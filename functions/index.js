@@ -2,7 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const utils = require("./utils");
 const config = require("./config");
-
+const Stripe = require("stripe");
 const stripe = new Stripe(config.stripeSecretKey, {
   apiVersion: "2020-08-27",
 });
