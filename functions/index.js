@@ -1,11 +1,20 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const utils = require("./utils");
+const config = require("./config");
+
+const stripe = new Stripe(config.stripeSecretKey, {
+  apiVersion: "2020-08-27",
+});
 
 admin.initializeApp();
 const db = admin.firestore();
 
-const fieldValue = admin.firestore.FieldValue;
+exports.createCustomer = functions.auth.user().onCreate(async (user) => {
+  if (!config.syncUsersOnCreate) return;
+  const { email, uid } = user;
+  await createCustomerRecord({ email, uid });
+});
 
 exports.notifyOnNotificationCreate = functions.firestore
   .document("notifications/{notificationId}")
@@ -39,6 +48,33 @@ exports.notifyOnNotificationCreate = functions.firestore
         });
     }
   });
+
+const createCustomerRecord = async ({ email, uid }) => {
+  try {
+    const customerData = {
+      metadata: {
+        firebaseUID: uid,
+      },
+    };
+    if (email) customerData.email = email;
+    const customer = await stripe.customers.create(customerData);
+    // Add a mapping record in Cloud Firestore.
+    const customerRecord = {
+      stripeId: customer.id,
+      stripeLink: `https://dashboard.stripe.com${
+        customer.livemode ? "" : "/test"
+      }/customers/${customer.id}`,
+    };
+    await admin
+      .firestore()
+      .collection(config.customersCollectionPath)
+      .doc(uid)
+      .set(customerRecord, { merge: true });
+    return customerRecord;
+  } catch (error) {
+    return null;
+  }
+};
 
 // exports.decrementBadgeOnNotificationRead = functions.firestore
 //   .document("notifications/{notificationId}")
