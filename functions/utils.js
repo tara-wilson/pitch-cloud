@@ -25,6 +25,7 @@ function sendPushMessages(title, message, badge, originalTokens, data) {
     }
   });
 
+  console.log("sending", messages);
   const chunks = expo.chunkPushNotifications(messages);
   const tickets = [];
   (async () => {
