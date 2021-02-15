@@ -7,6 +7,10 @@ const Stripe = require("stripe");
 const stripe = new Stripe(config.stripeSecretKey, {
   apiVersion: "2020-08-27",
 });
+var request = require("request");
+
+const MAIL_KEY =
+  "EcwE3FTl+C9kWXdGlSg9HK3sqw6SFQs7AFA4mM/hCNEqvqCJGJmc8L5HLgFXH02Uh7Y9mDx7v3+Ml7DjM8NUIK5sKgv9NjsI6l2WCRViZAyNl2GtcMBn/hKmM8Nu3B11JwHKUxIeIjcK//P9IFc9VQ==";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -102,6 +106,46 @@ exports.manualCheckSend = functions.https.onRequest((req, res) => {
   });
 });
 
+exports.manualChatEmail = functions.https.onRequest((req, res) => {
+  let url = `https://api.createsend.com/api/v3.2/transactional/classicEmail/send?clientID=b649a7d2b2db56612f25541b6d532216`;
+  let requestBody = {
+    Subject: "New chat message from your scout!",
+    From: "Pitch <no-reply@pitch.com>",
+    ReplyTo: "no-reply@pitch.com",
+    To: ["1tarawilson@gmail.com"],
+    CC: null,
+    BCC: null,
+    Html: "<p>testing</p>",
+    Text: "Testing",
+    Attachments: [],
+    TrackOpens: true,
+    TrackClicks: true,
+    InlineCSS: true,
+    Group: "Chat Message",
+    ConsentToTrack: "Yes",
+  };
+
+  var options = {
+    url: url,
+    method: "POST",
+    auth: {
+      user: MAIL_KEY,
+      password: "x",
+    },
+    body: JSON.stringify(requestBody),
+  };
+
+  request(options, function (err, res, body) {
+    if (err) {
+      console.log(err);
+      return;
+    }
+    console.log("headers", res.headers);
+    console.log("status code", res.statusCode);
+    console.log(body);
+  });
+});
+
 const handleMessageChatUpdates = async (message, template) => {
   return getBooking(message).then((booking) => {
     let messages = [...booking.messages];
@@ -173,6 +217,7 @@ const handleMessagePushNotification = async (message, template) => {
     return { user: user, message: message, template: template };
   });
 };
+
 const getCurrentScheduled = async () => {
   let now = moment().tz("America/New_York").toDate();
   let hour = moment().tz("America/New_York").hour();
