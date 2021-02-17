@@ -107,21 +107,14 @@ exports.manualCheckSend = functions.https.onRequest((req, res) => {
 });
 
 exports.manualChatEmail = functions.https.onRequest((req, res) => {
-  let url = `https://api.createsend.com/api/v3.2/transactional/classicEmail/send?clientID=b649a7d2b2db56612f25541b6d532216`;
+  let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/d7b08187-03ad-466f-b8d8-31c28641fe6a/send?clientID=b649a7d2b2db56612f25541b6d532216`;
   let requestBody = {
-    Subject: "New chat message from your scout!",
-    From: "Pitch <no-reply@pitch.com>",
-    ReplyTo: "no-reply@pitch.com",
     To: ["1tarawilson@gmail.com"],
-    CC: null,
-    BCC: null,
-    Html: "<p>testing</p>",
-    Text: "Testing",
-    Attachments: [],
-    TrackOpens: true,
-    TrackClicks: true,
-    InlineCSS: true,
-    Group: "Chat Message",
+    Data: {
+      scout_name: "Ryan",
+      chat_text: "Hey there!",
+    },
+
     ConsentToTrack: "Yes",
   };
 
@@ -135,14 +128,12 @@ exports.manualChatEmail = functions.https.onRequest((req, res) => {
     body: JSON.stringify(requestBody),
   };
 
-  request(options, function (err, res, body) {
+  request(options, function (err, resp, body) {
     if (err) {
       console.log(err);
       return;
     }
-    console.log("headers", res.headers);
-    console.log("status code", res.statusCode);
-    console.log(body);
+    res.send({ success: true });
   });
 });
 
