@@ -81,6 +81,82 @@ exports.notifyOnNotificationCreate = functions.firestore
     }
   });
 
+exports.emailOnNotificationCreate = functions.firestore
+  .document("notifications/{notificationId}")
+  .onCreate((snap, context) => {
+    const notificationId = context.params.notificationId;
+    const data = snap.data();
+
+    if (!data.sentViaEmail && !data.toScout) {
+      db.doc(`notifications/${notificationId}`).update({ sentViaEmail: true });
+      return sendChatAsEmail(data.senderName, data.recipientEmail, data.text);
+    }
+  });
+
+exports.emailOnBookingCreate = functions.firestore
+  .document("bookings/{bookingId}")
+  .onCreate((snap, context) => {
+    const bookingId = context.params.bookingId;
+    const data = snap.data();
+
+    return handleMessageEmail(
+      {
+        recipientEmail: data.recipientEmail,
+        scoutName: data.scoutName,
+        recipientName: data.recipientName,
+        destinationTitle: data.siteName,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        bookingId: bookingId,
+      },
+      { emailTemplateId: "3d3b7559-6737-4dc4-9e0f-ddbbbc9a28c0" }
+    );
+  });
+
+exports.checkForScheduledMessages = functions.pubsub
+  .schedule("10 8-20 * * *")
+  .timeZone("America/New_York")
+  .onRun((context) => {
+    let templates = {};
+    return getTemplates().then((ts) => {
+      templates = ts;
+
+      return getCurrentScheduled().then((sc) => {
+        let promises = [];
+
+        sc.forEach((item) => {
+          let tmp = templates[item.messageTemplate];
+          if (tmp.pushNotification) {
+            promises.push(handleMessagePushNotification(item, tmp));
+          }
+          if (
+            item.bookingId &&
+            tmp.chatMessage &&
+            tmp.chatMessages.length > 0
+          ) {
+            promises.push(handleMessageChatUpdates(item, tmp));
+          }
+          if (tmp.email && tmp.emailTemplateId) {
+            promises.push(handleMessageEmail(item, tmp));
+          }
+          promises.push(
+            db.doc(`scheduledMessages/${item.id}`).update({ sent: true })
+          );
+        });
+
+        return Promise.all(promises);
+      });
+    });
+  });
+
+exports.subscribeOnUserCreate = functions.firestore
+  .document("users/{userId}")
+  .onCreate((snap, context) => {
+    const data = snap.data();
+
+    return subscribeToList(data.email, `${data.firstName} ${data.lastName}`);
+  });
+
 exports.manualCheckSend = functions.https.onRequest((req, res) => {
   let templates = {};
   getTemplates().then((ts) => {
@@ -97,43 +173,18 @@ exports.manualCheckSend = functions.https.onRequest((req, res) => {
         if (item.bookingId && tmp.chatMessage && tmp.chatMessages.length > 0) {
           promises.push(handleMessageChatUpdates(item, tmp));
         }
+        if (tmp.email && tmp.emailTemplateId) {
+          promises.push(handleMessageEmail(item, tmp));
+        }
+        promises.push(
+          db.doc(`scheduledMessages/${item.id}`).update({ sent: true })
+        );
       });
 
       Promise.all(promises).then((result) => {
         res.send({ res: result });
       });
     });
-  });
-});
-
-exports.manualChatEmail = functions.https.onRequest((req, res) => {
-  let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/d7b08187-03ad-466f-b8d8-31c28641fe6a/send?clientID=b649a7d2b2db56612f25541b6d532216`;
-  let requestBody = {
-    To: ["1tarawilson@gmail.com"],
-    Data: {
-      scout_name: "Ryan",
-      chat_text: "Hey there!",
-    },
-
-    ConsentToTrack: "Yes",
-  };
-
-  var options = {
-    url: url,
-    method: "POST",
-    auth: {
-      user: MAIL_KEY,
-      password: "x",
-    },
-    body: JSON.stringify(requestBody),
-  };
-
-  request(options, function (err, resp, body) {
-    if (err) {
-      console.log(err);
-      return;
-    }
-    res.send({ success: true });
   });
 });
 
@@ -163,32 +214,6 @@ const handleMessageChatUpdates = async (message, template) => {
   });
 };
 
-const getRecipient = async (message) => {
-  return db
-    .collection("users")
-    .doc(message.recipient)
-    .get()
-    .then((item) => {
-      return { ...item.data(), id: item.id };
-    });
-};
-
-const getBooking = async (message) => {
-  return db
-    .collection("bookings")
-    .doc(message.bookingId)
-    .get()
-    .then((item) => {
-      return { ...item.data(), id: item.id };
-    });
-};
-
-const updateMessageString = (subject, message) => {
-  let sub = `${subject}`;
-  sub = sub.replace("${destination}", message.destinationTitle);
-  return sub;
-};
-
 const handleMessagePushNotification = async (message, template) => {
   return getRecipient(message).then((user) => {
     let title = "Pitch";
@@ -209,21 +234,136 @@ const handleMessagePushNotification = async (message, template) => {
   });
 };
 
+const handleMessageEmail = async (message, template) => {
+  let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/${template.emailTemplateId}/send?clientID=b649a7d2b2db56612f25541b6d532216`;
+  let requestBody = {
+    To: [message.recipientEmail],
+    Data: {
+      scout_name: message.scoutName,
+      recipient_name: message.recipientName,
+      destination_title: message.destinationTitle,
+      start_date: moment(new Date(message.startDate.seconds * 1000)).format(
+        "MMMM Do YYYY"
+      ),
+      end_date: moment(new Date(message.endDate.seconds * 1000)).format(
+        "MMMM Do YYYY"
+      ),
+      conf_code: message.bookingId.slice(0, 5),
+    },
+
+    ConsentToTrack: "Yes",
+  };
+
+  var options = {
+    url: url,
+    method: "POST",
+    auth: {
+      user: MAIL_KEY,
+      password: "x",
+    },
+    body: JSON.stringify(requestBody),
+  };
+
+  return request(options, function (err, resp, body) {
+    if (err) {
+      console.log(err);
+      return;
+    }
+    return resp;
+  });
+};
+
+const sendChatAsEmail = async (scoutName, recipientEmail, text) => {
+  let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/d7b08187-03ad-466f-b8d8-31c28641fe6a/send?clientID=b649a7d2b2db56612f25541b6d532216`;
+  let requestBody = {
+    To: [recipientEmail],
+    Data: {
+      scout_name: scoutName,
+      chat_text: text,
+    },
+
+    ConsentToTrack: "Yes",
+  };
+
+  var options = {
+    url: url,
+    method: "POST",
+    auth: {
+      user: MAIL_KEY,
+      password: "x",
+    },
+    body: JSON.stringify(requestBody),
+  };
+
+  return new Promise((resolve, reject) => {
+    request(options, function (err, resp, body) {
+      if (err) {
+        console.log(err);
+        resolve(err);
+      }
+
+      resolve(body);
+    });
+  });
+};
+
+const subscribeToList = async (email, name) => {
+  let url = `https://api.createsend.com/api/v3.2/subscribers/ce73da593a2b1ceef2b7ade442dc9263.json?clientID=b649a7d2b2db56612f25541b6d532216`;
+
+  let requestBody = {
+    EmailAddress: `${email}`,
+    Name: name,
+    ConsentToTrack: "Yes",
+  };
+
+  console.log("req", requestBody);
+
+  var options = {
+    url: url,
+    method: "POST",
+    auth: {
+      user: MAIL_KEY,
+      password: "x",
+    },
+    body: JSON.stringify(requestBody),
+  };
+
+  return new Promise((resolve, reject) => {
+    request(options, function (err, resp, body) {
+      if (err) {
+        console.log(err);
+        resolve(err);
+      }
+
+      resolve({ body: body, err: err });
+    });
+  });
+};
+
+const updateMessageString = (subject, message) => {
+  let sub = `${subject}`;
+  sub = sub.replace("${destination}", message.destinationTitle);
+  return sub;
+};
+
 const getCurrentScheduled = async () => {
   let now = moment().tz("America/New_York").toDate();
   let hour = moment().tz("America/New_York").hour();
-  return db
-    .collection("scheduledMessages")
-    .where("scheduledDate", "<", now)
-    .where("scheduledHour", "==", hour)
-    .get()
-    .then((snapshot) => {
-      let items = [];
-      snapshot.forEach((doc) => {
-        items.push({ ...doc.data(), id: doc.id });
-      });
-      return items.filter((it) => !it.sent);
-    });
+  return (
+    db
+      .collection("scheduledMessages")
+      .where("scheduledDate", "<", now)
+      // tara later maybe equal to or less than
+      .where("scheduledHour", "==", hour)
+      .get()
+      .then((snapshot) => {
+        let items = [];
+        snapshot.forEach((doc) => {
+          items.push({ ...doc.data(), id: doc.id });
+        });
+        return items.filter((it) => !it.sent);
+      })
+  );
 };
 
 const getTemplates = async () => {
@@ -236,5 +376,25 @@ const getTemplates = async () => {
         items[doc.id] = { ...doc.data(), id: doc.id };
       });
       return items;
+    });
+};
+
+const getRecipient = async (message) => {
+  return db
+    .collection("users")
+    .doc(message.recipient)
+    .get()
+    .then((item) => {
+      return { ...item.data(), id: item.id };
+    });
+};
+
+const getBooking = async (message) => {
+  return db
+    .collection("bookings")
+    .doc(message.bookingId)
+    .get()
+    .then((item) => {
+      return { ...item.data(), id: item.id };
     });
 };
