@@ -106,6 +106,7 @@ exports.emailOnBookingCreate = functions.firestore
         recipientName: data.recipientName,
         destinationTitle: data.siteName,
         startDate: data.startDate,
+        campsiteName: data.campsiteName,
         endDate: data.endDate,
         bookingId: bookingId,
       },
@@ -241,6 +242,7 @@ const handleMessageEmail = async (message, template) => {
     Data: {
       scout_name: message.scoutName,
       recipient_name: message.recipientName,
+      campsite_name: message.campsiteName,
       destination_title: message.destinationTitle,
       start_date: moment(new Date(message.startDate.seconds * 1000)).format(
         "MMMM Do YYYY"
