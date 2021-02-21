@@ -99,14 +99,14 @@ exports.emailOnBookingCreate = functions.firestore
     const bookingId = context.params.bookingId;
     const data = snap.data();
 
-    return handleMessageEmail(
+    return sendEmail(
       {
         recipientEmail: data.recipientEmail,
-        scoutName: data.scoutName,
+        scoutName: "",
         recipientName: data.recipientName,
         destinationTitle: data.siteName,
         startDate: data.startDate,
-        campsiteName: data.campsiteName,
+        campsiteName: "",
         endDate: data.endDate,
         bookingId: bookingId,
       },
@@ -130,11 +130,7 @@ exports.checkForScheduledMessages = functions.pubsub
           if (tmp.pushNotification) {
             promises.push(handleMessagePushNotification(item, tmp));
           }
-          if (
-            item.bookingId &&
-            tmp.chatMessage &&
-            tmp.chatMessages.length > 0
-          ) {
+          if (tmp.chatMessage && tmp.chatMessages.length > 0) {
             promises.push(handleMessageChatUpdates(item, tmp));
           }
           if (tmp.email && tmp.emailTemplateId) {
@@ -171,7 +167,7 @@ exports.manualCheckSend = functions.https.onRequest((req, res) => {
         if (tmp.pushNotification) {
           promises.push(handleMessagePushNotification(item, tmp));
         }
-        if (item.bookingId && tmp.chatMessage && tmp.chatMessages.length > 0) {
+        if (tmp.chatMessage && tmp.chatMessages.length > 0) {
           promises.push(handleMessageChatUpdates(item, tmp));
         }
         if (tmp.email && tmp.emailTemplateId) {
@@ -236,6 +232,19 @@ const handleMessagePushNotification = async (message, template) => {
 };
 
 const handleMessageEmail = async (message, template) => {
+  return getBooking(message).then((booking) => {
+    return sendEmail(
+      {
+        ...message,
+        scoutName: booking.scoutName || "",
+        campsiteName: booking.campsiteName || "",
+      },
+      template
+    );
+  });
+};
+
+const sendEmail = async (message, template) => {
   let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/${template.emailTemplateId}/send?clientID=b649a7d2b2db56612f25541b6d532216`;
   let requestBody = {
     To: [message.recipientEmail],
@@ -318,8 +327,6 @@ const subscribeToList = async (email, name) => {
     ConsentToTrack: "Yes",
   };
 
-  console.log("req", requestBody);
-
   var options = {
     url: url,
     method: "POST",
@@ -368,14 +375,13 @@ const getCurrentScheduled = async () => {
   return db
     .collection("scheduledMessages")
     .where("scheduledDate", "<=", now)
-    .where("scheduledHour", "<=", hour)
     .get()
     .then((snapshot) => {
       let items = [];
       snapshot.forEach((doc) => {
         items.push({ ...doc.data(), id: doc.id });
       });
-      return items.filter((it) => !it.sent);
+      return items.filter((it) => !it.sent && it.scheduledHour <= hour);
     });
 };
 
