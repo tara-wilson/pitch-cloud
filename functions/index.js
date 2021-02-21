@@ -206,7 +206,10 @@ const handleMessageChatUpdates = async (message, template) => {
     return db
       .collection("bookings")
       .doc(message.bookingId)
-      .update({ messages: messages })
+      .update({
+        messages: messages,
+        unread: (booking.unread || 0) + messages.length,
+      })
       .then(() => ({ booking: booking, template: template, message: message }));
   });
 };
