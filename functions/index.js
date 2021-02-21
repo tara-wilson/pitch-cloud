@@ -344,28 +344,39 @@ const subscribeToList = async (email, name) => {
 
 const updateMessageString = (subject, message) => {
   let sub = `${subject}`;
-  sub = sub.replace("${destination}", message.destinationTitle);
+  let startDate = moment(new Date(message.startDate.seconds * 1000)).format(
+    "MMMM Do YYYY"
+  );
+  let endDate = moment(new Date(message.endDate.seconds * 1000)).format(
+    "MMMM Do YYYY"
+  );
+  sub = sub.replace("[destination_title]", message.destinationTitle);
+
+  sub = sub.replace("[scout_name]", message.scoutName);
+  sub = sub.replace("[recipient_name]", message.recipientName);
+  sub = sub.replace("[campsite_name]", message.campsiteName);
+  sub = sub.replace("[conf_code]", message.bookingId.slice(0, 5));
+  sub = sub.replace("[start_date]", startDate);
+  sub = sub.replace("[end_date]", endDate);
+
   return sub;
 };
 
 const getCurrentScheduled = async () => {
   let now = moment().tz("America/New_York").toDate();
   let hour = moment().tz("America/New_York").hour();
-  return (
-    db
-      .collection("scheduledMessages")
-      .where("scheduledDate", "<", now)
-      // tara later maybe equal to or less than
-      .where("scheduledHour", "==", hour)
-      .get()
-      .then((snapshot) => {
-        let items = [];
-        snapshot.forEach((doc) => {
-          items.push({ ...doc.data(), id: doc.id });
-        });
-        return items.filter((it) => !it.sent);
-      })
-  );
+  return db
+    .collection("scheduledMessages")
+    .where("scheduledDate", "<=", now)
+    .where("scheduledHour", "<=", hour)
+    .get()
+    .then((snapshot) => {
+      let items = [];
+      snapshot.forEach((doc) => {
+        items.push({ ...doc.data(), id: doc.id });
+      });
+      return items.filter((it) => !it.sent);
+    });
 };
 
 const getTemplates = async () => {
