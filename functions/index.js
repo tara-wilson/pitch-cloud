@@ -109,6 +109,8 @@ exports.emailOnBookingCreate = functions.firestore
         campsiteName: "",
         endDate: data.endDate,
         bookingId: bookingId,
+        price: data.payment ? data.payment.amount / 100 : "",
+        campsiteNumber: data.campsiteNumber ? data.campsiteNumber : "",
       },
       { emailTemplateId: "3d3b7559-6737-4dc4-9e0f-ddbbbc9a28c0" }
     );
@@ -241,6 +243,8 @@ const handleMessageEmail = async (message, template) => {
         ...message,
         scoutName: booking.scoutName || "",
         campsiteName: booking.campsiteName || "",
+        price: booking.payment ? booking.payment.amount / 100 : "",
+        campsiteNumber: booking.campsiteNumber ? booking.campsiteNumber : "",
       },
       template
     );
@@ -263,6 +267,8 @@ const sendEmail = async (message, template) => {
         "MMMM Do YYYY"
       ),
       conf_code: message.bookingId.slice(0, 5),
+      price: message.price,
+      campsite_number: message.campsiteNumber,
     },
 
     ConsentToTrack: "Yes",
@@ -368,6 +374,9 @@ const updateMessageString = (subject, message) => {
   sub = sub.replace("[conf_code]", message.bookingId.slice(0, 5));
   sub = sub.replace("[start_date]", startDate);
   sub = sub.replace("[end_date]", endDate);
+  // tara here price
+  // tara here campsiteNumber
+  // tara here scout_name and campsite_name could be wrong
 
   return sub;
 };
