@@ -197,7 +197,7 @@ const handleMessageChatUpdates = async (message, template) => {
         date: new Date(),
         recipient: booking.userId,
         sender: booking.scoutId ? booking.scoutId : null,
-        text: updateMessageString(cm.text, message),
+        text: updateMessageString(cm.text, message, booking),
         user: {
           _id: booking.scoutId ? booking.scoutId : null,
         },
@@ -217,22 +217,24 @@ const handleMessageChatUpdates = async (message, template) => {
 };
 
 const handleMessagePushNotification = async (message, template) => {
-  return getRecipient(message).then((user) => {
-    let title = "Pitch";
-    let oldCount = user.badgeCount || 0;
+  return getBooking(message).then((booking) => {
+    return getRecipient(message).then((user) => {
+      let title = "Pitch";
+      let oldCount = user.badgeCount || 0;
 
-    var userBadgeRef = db.collection("users").doc(message.recipient);
-    userBadgeRef.update({ badgeCount: oldCount + 1 });
+      var userBadgeRef = db.collection("users").doc(message.recipient);
+      userBadgeRef.update({ badgeCount: oldCount + 1 });
 
-    utils.sendPushMessages(
-      title,
-      updateMessageString(template.subject, message),
-      oldCount + 1,
-      [user.pushToken],
-      message
-    );
+      utils.sendPushMessages(
+        title,
+        updateMessageString(template.subject, message, booking),
+        oldCount + 1,
+        [user.pushToken],
+        message
+      );
 
-    return { user: user, message: message, template: template };
+      return { user: user, message: message, template: template };
+    });
   });
 };
 
@@ -258,7 +260,7 @@ const sendEmail = async (message, template) => {
     Data: {
       scout_name: message.scoutName,
       recipient_name: message.recipientName,
-      campsite_name: message.campsiteName,
+      campsite_title: message.campsiteName,
       destination_title: message.destinationTitle,
       start_date: moment(new Date(message.startDate.seconds * 1000)).format(
         "MMMM Do YYYY"
@@ -358,7 +360,7 @@ const subscribeToList = async (email, name) => {
   });
 };
 
-const updateMessageString = (subject, message) => {
+const updateMessageString = (subject, message, booking) => {
   let sub = `${subject}`;
   let startDate = moment(new Date(message.startDate.seconds * 1000)).format(
     "MMMM Do YYYY"
@@ -368,15 +370,19 @@ const updateMessageString = (subject, message) => {
   );
   sub = sub.replace("[destination_title]", message.destinationTitle);
 
-  sub = sub.replace("[scout_name]", message.scoutName);
+  sub = sub.replace("[scout_name]", booking.scoutName);
   sub = sub.replace("[recipient_name]", message.recipientName);
-  sub = sub.replace("[campsite_name]", message.campsiteName);
+  sub = sub.replace("[campsite_title]", booking.campsiteName);
+  sub = sub.replace("[campsite_number]", booking.campsiteNumber);
+  sub = sub.replace(
+    "[price]",
+    booking.payment && booking.payment.amount
+      ? booking.payment.amount / 100
+      : ""
+  );
   sub = sub.replace("[conf_code]", message.bookingId.slice(0, 5));
   sub = sub.replace("[start_date]", startDate);
   sub = sub.replace("[end_date]", endDate);
-  // tara here price
-  // tara here campsiteNumber
-  // tara here scout_name and campsite_name could be wrong
 
   return sub;
 };
@@ -394,6 +400,20 @@ const getCurrentScheduled = async () => {
         items.push({ ...doc.data(), id: doc.id });
       });
       return items.filter((it) => !it.sent && it.scheduledHour <= hour);
+    });
+};
+
+const getScheduledForBooking = async (bookingId) => {
+  return db
+    .collection("scheduledMessages")
+    .where("bookingId", "==", bookingId)
+    .get()
+    .then((snapshot) => {
+      let items = [];
+      snapshot.forEach((doc) => {
+        items.push({ ...doc.data(), id: doc.id });
+      });
+      return items;
     });
 };
 
@@ -429,3 +449,54 @@ const getBooking = async (message) => {
       return { ...item.data(), id: item.id };
     });
 };
+
+exports.onDeleteBooking = functions.firestore
+  .document("bookings/{bookingId}")
+  .onDelete((snap, context) => {
+    const bookingId = context.params.bookingId;
+
+    return getScheduledForBooking(bookingId).then((scheduledMessages) => {
+      var batch = db.batch();
+
+      scheduledMessages.forEach(async (event) => {
+        var eventRef = db.collection("scheduledMessages").doc(event.id);
+        batch.delete(eventRef);
+      });
+
+      return batch.commit();
+    });
+  });
+
+// exports.temp = functions.https.onRequest((req, res) => {
+//   return (
+//     db
+//       .collection("equipment")
+//       // .limit(10)
+//       .get()
+//       .then((snapshot) => {
+//         let items = [];
+//         snapshot.forEach((doc) => {
+//           items.push({ ...doc.data(), id: doc.id });
+//         });
+
+//         let update = {
+//           destinationIds: [
+//             "wshOEVmTM33HI9q7MNm0",
+//             "SgKNfQ0c68CfMFZHAOAL",
+//             "kOwobRvJrR2tvp64N8a7",
+//           ],
+//         };
+
+//         var batch = db.batch();
+
+//         items.forEach(async (event) => {
+//           var eventRef = db.collection("equipment").doc(event.id);
+//           batch.update(eventRef, update);
+//         });
+
+//         return batch.commit().then((f) => {
+//           res.send({ items: items });
+//         });
+//       })
+//   );
+// });
