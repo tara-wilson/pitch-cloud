@@ -156,6 +156,36 @@ exports.subscribeOnUserCreate = functions.firestore
     return subscribeToList(data.email, `${data.firstName} ${data.lastName}`);
   });
 
+exports.sendMessageNow = functions.https.onRequest((req, res) => {
+  const id = req.query.id;
+  let templates = {};
+  getTemplates().then((ts) => {
+    templates = ts;
+
+    getMessageItemForId(id).then((item) => {
+      let promises = [];
+
+      let tmp = templates[item.messageTemplate];
+      if (tmp.pushNotification) {
+        promises.push(handleMessagePushNotification(item, tmp));
+      }
+      if (tmp.chatMessage && tmp.chatMessages.length > 0) {
+        promises.push(handleMessageChatUpdates(item, tmp));
+      }
+      if (tmp.email && tmp.emailTemplateId) {
+        promises.push(handleMessageEmail(item, tmp));
+      }
+      promises.push(
+        db.doc(`scheduledMessages/${item.id}`).update({ sent: true })
+      );
+
+      Promise.all(promises).then((result) => {
+        res.send({ res: result });
+      });
+    });
+  });
+});
+
 exports.manualCheckSend = functions.https.onRequest((req, res) => {
   let templates = {};
   getTemplates().then((ts) => {
@@ -387,6 +417,16 @@ const updateMessageString = (subject, message, booking) => {
   return sub;
 };
 
+const getMessageItemForId = async (id) => {
+  return db
+    .collection("scheduledMessages")
+    .doc(id)
+    .get()
+    .then((snapshot) => {
+      return { ...snapshot.data(), id: id };
+    });
+};
+
 const getCurrentScheduled = async () => {
   let now = moment().tz("America/New_York").toDate();
   let hour = moment().tz("America/New_York").hour();
@@ -479,24 +519,20 @@ exports.onDeleteBooking = functions.firestore
 //           items.push({ ...doc.data(), id: doc.id });
 //         });
 
-//         let update = {
-//           destinationIds: [
-//             "wshOEVmTM33HI9q7MNm0",
-//             "SgKNfQ0c68CfMFZHAOAL",
-//             "kOwobRvJrR2tvp64N8a7",
-//           ],
-//         };
+//         // let update = {
+//         //   bookedDates: [],
+//         // };
 
-//         var batch = db.batch();
+//         // var batch = db.batch();
 
-//         items.forEach(async (event) => {
-//           var eventRef = db.collection("equipment").doc(event.id);
-//           batch.update(eventRef, update);
-//         });
+//         // items.forEach(async (event) => {
+//         //   var eventRef = db.collection("equipment").doc(event.id);
+//         //   batch.update(eventRef, update);
+//         // });
 
-//         return batch.commit().then((f) => {
-//           res.send({ items: items });
-//         });
+//         // return batch.commit().then((f) => {
+//         res.send({ items: items });
+//         // });
 //       })
 //   );
 // });
