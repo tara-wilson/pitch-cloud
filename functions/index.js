@@ -186,6 +186,36 @@ exports.sendMessageNow = functions.https.onRequest((req, res) => {
   });
 });
 
+exports.createScout = functions.https.onRequest((req, res) => {
+  const userId = req.query.id;
+  return getUserForId(userId).then((user) => {
+    let newScout = {
+      bio: "",
+      aboutQuestions: [],
+      destinations: "",
+      email: user.email,
+      firstName: user.firstName ? user.firstName : "",
+      lastName: user.lastName ? user.lastName : "",
+      userId: userId,
+    };
+    return db
+      .collection("scouts")
+      .add(newScout)
+      .then((scoutRes) => {
+        let scoutId = scoutRes.id;
+        return db
+          .collection("users")
+          .doc(userId)
+          .update({ scout: true, scoutId: scoutId })
+          .then((upd) => {
+            return res.redirect(
+              `https://pitch-admin-portal.herokuapp.com/#/scouts/${scoutId}/show`
+            );
+          });
+      });
+  });
+});
+
 exports.manualCheckSend = functions.https.onRequest((req, res) => {
   let templates = {};
   getTemplates().then((ts) => {
@@ -424,6 +454,16 @@ const getMessageItemForId = async (id) => {
     .get()
     .then((snapshot) => {
       return { ...snapshot.data(), id: id };
+    });
+};
+
+const getUserForId = async (id) => {
+  return db
+    .collection("users")
+    .doc(id)
+    .get()
+    .then((item) => {
+      return { ...item.data(), id: item.id };
     });
 };
 
