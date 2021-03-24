@@ -99,21 +99,35 @@ exports.emailOnBookingCreate = functions.firestore
     const bookingId = context.params.bookingId;
     const data = snap.data();
 
-    return sendEmail(
-      {
-        recipientEmail: data.recipientEmail,
-        scoutName: "",
-        recipientName: data.recipientName,
-        destinationTitle: data.siteName,
-        startDate: data.startDate,
-        campsiteName: "",
-        endDate: data.endDate,
-        bookingId: bookingId,
-        price: data.payment ? data.payment.amount / 100 : "",
-        campsiteNumber: data.campsiteNumber ? data.campsiteNumber : "",
-      },
-      { emailTemplateId: "3d3b7559-6737-4dc4-9e0f-ddbbbc9a28c0" }
-    );
+    return getUserForId("FvJMey7h22ZlPAT85EcE1askMYO2").then((tara) => {
+      return getUserForId("a6eLSHlmYnXd2CDg1sgje4m0FpV2").then((blair) => {
+        return getUserForId("pkjdxzebpTMmVKbziZ6UloBtK7m1").then((emma) => {
+          utils.sendPushMessages(
+            "Pitch",
+            "New Booking!",
+            null,
+            [tara.pushToken],
+            {}
+          );
+
+          return sendEmail(
+            {
+              recipientEmail: data.recipientEmail,
+              scoutName: "",
+              recipientName: data.recipientName,
+              destinationTitle: data.siteName,
+              startDate: data.startDate,
+              campsiteName: "",
+              endDate: data.endDate,
+              bookingId: bookingId,
+              price: data.payment ? data.payment.amount / 100 : "",
+              campsiteNumber: data.campsiteNumber ? data.campsiteNumber : "",
+            },
+            { emailTemplateId: "3d3b7559-6737-4dc4-9e0f-ddbbbc9a28c0" }
+          );
+        });
+      });
+    });
   });
 
 exports.checkForScheduledMessages = functions.pubsub
@@ -475,9 +489,16 @@ const getCurrentScheduled = async () => {
     .where("scheduledDate", "<=", now)
     .get()
     .then((snapshot) => {
+      let users = [];
       let items = [];
       snapshot.forEach((doc) => {
-        items.push({ ...doc.data(), id: doc.id });
+        let msg = { ...doc.data(), id: doc.id };
+        if (users.includes(msg.recipient)) {
+          //
+        } else {
+          items.push(msg);
+          users.push(msg.recipient);
+        }
       });
       return items.filter((it) => !it.sent && it.scheduledHour <= hour);
     });
