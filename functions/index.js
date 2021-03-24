@@ -106,7 +106,7 @@ exports.emailOnBookingCreate = functions.firestore
             "Pitch",
             "New Booking!",
             null,
-            [tara.pushToken],
+            [tara.pushToken, blair.pushToken, emma.pushToken],
             {}
           );
 
