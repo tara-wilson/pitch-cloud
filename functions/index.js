@@ -232,10 +232,10 @@ exports.createScout = functions.https.onRequest((req, res) => {
 
 exports.manualCheckSend = functions.https.onRequest((req, res) => {
   let templates = {};
-  getTemplates().then((ts) => {
+  return getTemplates().then((ts) => {
     templates = ts;
 
-    getCurrentScheduled().then((sc) => {
+    return getCurrentScheduled().then((sc) => {
       let promises = [];
 
       sc.forEach((item) => {
@@ -254,8 +254,8 @@ exports.manualCheckSend = functions.https.onRequest((req, res) => {
         );
       });
 
-      Promise.all(promises).then((result) => {
-        res.send({ res: result });
+      return Promise.all(promises).then(() => {
+        res.send({ data: sc });
       });
     });
   });
@@ -484,17 +484,18 @@ const getUserForId = async (id) => {
 const getCurrentScheduled = async () => {
   let now = moment().tz("America/New_York").toDate();
   let hour = moment().tz("America/New_York").hour();
+  let users = [];
+  let items = [];
   return db
     .collection("scheduledMessages")
     .where("scheduledDate", "<=", now)
+    .where("sent", "==", false)
     .get()
     .then((snapshot) => {
-      let users = [];
-      let items = [];
       snapshot.forEach((doc) => {
         let msg = { ...doc.data(), id: doc.id };
         if (users.includes(msg.recipient)) {
-          //
+          console.log("already has", msg.recipient);
         } else {
           items.push(msg);
           users.push(msg.recipient);
