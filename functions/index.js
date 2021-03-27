@@ -230,6 +230,31 @@ exports.createScout = functions.https.onRequest((req, res) => {
   });
 });
 
+exports.cancellation = functions.https.onRequest((req, res) => {
+  let cancellationTemplate = "b27ccb4f-8170-4bc9-b509-ae36b7e29bf1";
+  const bookingId = req.query.id;
+
+  getBooking({ bookingId: bookingId }).then((booking) => {
+    return sendEmail(
+      {
+        recipientEmail: booking.recipientEmail,
+        scoutName: booking.scoutName ? booking.scoutName : "",
+        recipientName: booking.recipientName,
+        destinationTitle: booking.siteName,
+        startDate: booking.startDate,
+        campsiteName: booking.campsiteName ? booking.campsiteName : "",
+        endDate: booking.endDate,
+        bookingId: bookingId,
+        price: booking.payment ? booking.payment.amount / 100 : "",
+        campsiteNumber: booking.campsiteNumber ? booking.campsiteNumber : "",
+      },
+      { emailTemplateId: cancellationTemplate }
+    ).then(() => {
+      res.send({ done: true });
+    });
+  });
+});
+
 exports.manualCheckSend = functions.https.onRequest((req, res) => {
   let templates = {};
   return getTemplates().then((ts) => {
