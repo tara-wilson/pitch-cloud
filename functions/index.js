@@ -230,9 +230,9 @@ exports.createScout = functions.https.onRequest((req, res) => {
   });
 });
 
-exports.cancellation = functions.https.onRequest((req, res) => {
+exports.cancellation = functions.https.onCall((data, context) => {
   let cancellationTemplate = "b27ccb4f-8170-4bc9-b509-ae36b7e29bf1";
-  const bookingId = req.query.id;
+  const bookingId = data.id;
 
   getBooking({ bookingId: bookingId }).then((booking) => {
     return sendEmail(
@@ -250,7 +250,7 @@ exports.cancellation = functions.https.onRequest((req, res) => {
       },
       { emailTemplateId: cancellationTemplate }
     ).then(() => {
-      res.send({ done: true });
+      return { done: true };
     });
   });
 });
