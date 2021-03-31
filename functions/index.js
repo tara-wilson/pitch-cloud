@@ -144,8 +144,7 @@ exports.notifyOnContactCreate = functions.firestore
               ? `There is a new App Message from ${data.email} in the Admin Portal`
               : "There is a new App Message in the Admin Portal",
             null,
-            // blair.pushToken, emma.pushToken
-            [tara.pushToken],
+            [tara.pushToken, blair.pushToken, emma.pushToken],
             {}
           );
         });
