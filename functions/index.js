@@ -130,6 +130,29 @@ exports.emailOnBookingCreate = functions.firestore
     });
   });
 
+exports.notifyOnContactCreate = functions.firestore
+  .document("contacts/{contactId}")
+  .onCreate((snap, context) => {
+    const data = snap.data();
+
+    return getUserForId("FvJMey7h22ZlPAT85EcE1askMYO2").then((tara) => {
+      return getUserForId("a6eLSHlmYnXd2CDg1sgje4m0FpV2").then((blair) => {
+        return getUserForId("pkjdxzebpTMmVKbziZ6UloBtK7m1").then((emma) => {
+          utils.sendPushMessages(
+            "Pitch",
+            data.email
+              ? `There is a new App Message from ${data.email} in the Admin Portal`
+              : "There is a new App Message in the Admin Portal",
+            null,
+            // blair.pushToken, emma.pushToken
+            [tara.pushToken],
+            {}
+          );
+        });
+      });
+    });
+  });
+
 exports.checkForScheduledMessages = functions.pubsub
   .schedule("10 8-20 * * *")
   .timeZone("America/New_York")
