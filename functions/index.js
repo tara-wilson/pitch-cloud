@@ -616,32 +616,27 @@ exports.onDeleteBooking = functions.firestore
     });
   });
 
-// exports.temp = functions.https.onRequest((req, res) => {
-//   return (
-//     db
-//       .collection("equipment")
-//       // .limit(10)
-//       .get()
-//       .then((snapshot) => {
-//         let items = [];
-//         snapshot.forEach((doc) => {
-//           items.push({ ...doc.data(), id: doc.id });
-//         });
+// exports.moveCustomersToProd = functions.https.onRequest((req, res) => {
+//   return db
+//     .collection("users")
 
-//         // let update = {
-//         //   bookedDates: [],
-//         // };
+//     .get()
+//     .then((snapshot) => {
+//       let items = [];
+//       snapshot.forEach((doc) => {
+//         items.push({ ...doc.data(), id: doc.id });
+//       });
 
-//         // var batch = db.batch();
+//       let promises = [];
 
-//         // items.forEach(async (event) => {
-//         //   var eventRef = db.collection("equipment").doc(event.id);
-//         //   batch.update(eventRef, update);
-//         // });
+//       items.forEach(async (user) => {
+//         promises.push(
+//           createCustomerRecord({ email: user.email, uid: user.id })
+//         );
+//       });
 
-//         // return batch.commit().then((f) => {
-//         res.send({ items: items });
-//         // });
-//       })
-//   );
+//       return Promise.all(promises).then((f) => {
+//         res.send({ items: items, results: f });
+//       });
+//     });
 // });
