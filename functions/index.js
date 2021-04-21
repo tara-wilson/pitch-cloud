@@ -310,67 +310,83 @@ exports.manualCheckSend = functions.https.onRequest((req, res) => {
 
 const handleMessageChatUpdates = async (message, template) => {
   return getBooking(message).then((booking) => {
-    let messages = [...booking.messages];
-    let id = messages.length;
-    template.chatMessages.forEach((cm) => {
-      messages.push({
-        id: `${id}`,
-        date: new Date(),
-        recipient: booking.userId,
-        sender: booking.scoutId ? booking.scoutId : null,
-        text: updateMessageString(cm.text, message, booking),
-        user: {
-          _id: booking.scoutId ? booking.scoutId : null,
-        },
+    if (!booking.cancelled) {
+      let messages = [...booking.messages];
+      let id = messages.length;
+      template.chatMessages.forEach((cm) => {
+        messages.push({
+          id: `${id}`,
+          date: new Date(),
+          recipient: booking.userId,
+          sender: booking.scoutId ? booking.scoutId : null,
+          text: updateMessageString(cm.text, message, booking),
+          user: {
+            _id: booking.scoutId ? booking.scoutId : null,
+          },
+        });
+        id++;
       });
-      id++;
-    });
 
-    return db
-      .collection("bookings")
-      .doc(message.bookingId)
-      .update({
-        messages: messages,
-        unread: (booking.unread || 0) + messages.length,
-      })
-      .then(() => ({ booking: booking, template: template, message: message }));
+      return db
+        .collection("bookings")
+        .doc(message.bookingId)
+        .update({
+          messages: messages,
+          unread: (booking.unread || 0) + messages.length,
+        })
+        .then(() => ({
+          booking: booking,
+          template: template,
+          message: message,
+        }));
+    } else {
+      return {};
+    }
   });
 };
 
 const handleMessagePushNotification = async (message, template) => {
   return getBooking(message).then((booking) => {
-    return getRecipient(message).then((user) => {
-      let title = "Pitch";
-      let oldCount = user.badgeCount || 0;
+    if (!booking.cancelled) {
+      return getRecipient(message).then((user) => {
+        let title = "Pitch";
+        let oldCount = user.badgeCount || 0;
 
-      var userBadgeRef = db.collection("users").doc(message.recipient);
-      userBadgeRef.update({ badgeCount: oldCount + 1 });
+        var userBadgeRef = db.collection("users").doc(message.recipient);
+        userBadgeRef.update({ badgeCount: oldCount + 1 });
 
-      utils.sendPushMessages(
-        title,
-        updateMessageString(template.subject, message, booking),
-        oldCount + 1,
-        [user.pushToken],
-        message
-      );
+        utils.sendPushMessages(
+          title,
+          updateMessageString(template.subject, message, booking),
+          oldCount + 1,
+          [user.pushToken],
+          message
+        );
 
-      return { user: user, message: message, template: template };
-    });
+        return { user: user, message: message, template: template };
+      });
+    } else {
+      return {};
+    }
   });
 };
 
 const handleMessageEmail = async (message, template) => {
   return getBooking(message).then((booking) => {
-    return sendEmail(
-      {
-        ...message,
-        scoutName: booking.scoutName || "",
-        campsiteName: booking.campsiteName || "",
-        price: booking.payment ? booking.payment.amount / 100 : "",
-        campsiteNumber: booking.campsiteNumber ? booking.campsiteNumber : "",
-      },
-      template
-    );
+    if (!booking.cancelled) {
+      return sendEmail(
+        {
+          ...message,
+          scoutName: booking.scoutName || "",
+          campsiteName: booking.campsiteName || "",
+          price: booking.payment ? booking.payment.amount / 100 : "",
+          campsiteNumber: booking.campsiteNumber ? booking.campsiteNumber : "",
+        },
+        template
+      );
+    } else {
+      return {};
+    }
   });
 };
 
