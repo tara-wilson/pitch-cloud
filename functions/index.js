@@ -257,23 +257,58 @@ exports.cancellation = functions.https.onCall((data, context) => {
   const bookingId = data.id;
 
   getBooking({ bookingId: bookingId }).then((booking) => {
-    return sendEmail(
-      {
-        recipientEmail: booking.recipientEmail,
-        scoutName: booking.scoutName ? booking.scoutName : "",
-        recipientName: booking.recipientName,
-        destinationTitle: booking.siteName,
-        startDate: booking.startDate,
-        campsiteName: booking.campsiteName ? booking.campsiteName : "",
-        endDate: booking.endDate,
-        bookingId: bookingId,
-        price: booking.payment ? booking.payment.amount / 100 : "",
-        campsiteNumber: booking.campsiteNumber ? booking.campsiteNumber : "",
-      },
-      { emailTemplateId: cancellationTemplate }
-    ).then(() => {
-      return { done: true };
-    });
+    if (booking.scoutId) {
+      return getScoutForId(booking.scoutId).then((scoutObj) => {
+        return getUserForId(scoutObj.userId).then((scoutUser) => {
+          utils.sendPushMessages(
+            "Pitch",
+            `The booking on ${moment(
+              new Date(booking.startDate.seconds * 1000)
+            ).format("MMMM Do")} to ${booking.destinationTitle} was cancelled.`,
+            null,
+            [scoutUser.pushToken],
+            {}
+          );
+          return sendEmail(
+            {
+              recipientEmail: booking.recipientEmail,
+              scoutName: booking.scoutName ? booking.scoutName : "",
+              recipientName: booking.recipientName,
+              destinationTitle: booking.siteName,
+              startDate: booking.startDate,
+              campsiteName: booking.campsiteName ? booking.campsiteName : "",
+              endDate: booking.endDate,
+              bookingId: bookingId,
+              price: booking.payment ? booking.payment.amount / 100 : "",
+              campsiteNumber: booking.campsiteNumber
+                ? booking.campsiteNumber
+                : "",
+            },
+            { emailTemplateId: cancellationTemplate }
+          ).then(() => {
+            return { done: true };
+          });
+        });
+      });
+    } else {
+      return sendEmail(
+        {
+          recipientEmail: booking.recipientEmail,
+          scoutName: booking.scoutName ? booking.scoutName : "",
+          recipientName: booking.recipientName,
+          destinationTitle: booking.siteName,
+          startDate: booking.startDate,
+          campsiteName: booking.campsiteName ? booking.campsiteName : "",
+          endDate: booking.endDate,
+          bookingId: bookingId,
+          price: booking.payment ? booking.payment.amount / 100 : "",
+          campsiteNumber: booking.campsiteNumber ? booking.campsiteNumber : "",
+        },
+        { emailTemplateId: cancellationTemplate }
+      ).then(() => {
+        return { done: true };
+      });
+    }
   });
 });
 
@@ -537,6 +572,16 @@ const getMessageItemForId = async (id) => {
 const getUserForId = async (id) => {
   return db
     .collection("users")
+    .doc(id)
+    .get()
+    .then((item) => {
+      return { ...item.data(), id: item.id };
+    });
+};
+
+const getScoutForId = async (id) => {
+  return db
+    .collection("scouts")
     .doc(id)
     .get()
     .then((item) => {
