@@ -264,7 +264,7 @@ exports.cancellation = functions.https.onCall((data, context) => {
             "Pitch",
             `The booking on ${moment(
               new Date(booking.startDate.seconds * 1000)
-            ).format("MMMM Do")} to ${booking.destinationTitle} was cancelled.`,
+            ).format("MMMM Do")} to ${booking.siteName} was cancelled.`,
             null,
             [scoutUser.pushToken],
             {}
@@ -286,7 +286,20 @@ exports.cancellation = functions.https.onCall((data, context) => {
             },
             { emailTemplateId: cancellationTemplate }
           ).then(() => {
-            return { done: true };
+            return getScheduledForBooking(bookingId).then(
+              (scheduledMessages) => {
+                var batch = db.batch();
+
+                scheduledMessages.forEach(async (event) => {
+                  var eventRef = db
+                    .collection("scheduledMessages")
+                    .doc(event.id);
+                  batch.delete(eventRef);
+                });
+
+                return batch.commit();
+              }
+            );
           });
         });
       });
@@ -306,7 +319,16 @@ exports.cancellation = functions.https.onCall((data, context) => {
         },
         { emailTemplateId: cancellationTemplate }
       ).then(() => {
-        return { done: true };
+        return getScheduledForBooking(bookingId).then((scheduledMessages) => {
+          var batch = db.batch();
+
+          scheduledMessages.forEach(async (event) => {
+            var eventRef = db.collection("scheduledMessages").doc(event.id);
+            batch.delete(eventRef);
+          });
+
+          return batch.commit();
+        });
       });
     }
   });
