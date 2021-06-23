@@ -723,3 +723,63 @@ exports.onDeleteBooking = functions.firestore
 //       });
 //     });
 // });
+
+// exports.clearBookedDates = functions.https.onRequest((req, res) => {
+//   return db
+//     .collection("bookings")
+//     .doc("LWKkm3ZhLL16zsNoY0i6")
+//     .get()
+//     .then((snapshot) => {
+//       let equipmentIds = snapshot.data().equipmentIds;
+
+//       let validDate = null;
+
+//       let promises = [];
+
+//       equipmentIds.forEach((equipId) => {
+//         let item = db
+//           .collection("equipment")
+//           .doc(equipId)
+//           .get()
+//           .then((snap) => ({ ...snap.data(), id: snap.id }));
+//         promises.push(item);
+//       });
+
+//       return Promise.all(promises).then((results) => {
+//         results.forEach((equipmentObj) => {
+//           let bookedDate = equipmentObj.bookedDates.find(
+//             (item) => item.bookingId == "LWKkm3ZhLL16zsNoY0i6"
+//           );
+//           if (bookedDate && bookedDate.date) {
+//             validDate = bookedDate.date;
+//           }
+//         });
+
+//         if (validDate) {
+//           var batch = db.batch();
+
+//           results.forEach((equipmentObj) => {
+//             let currentDates = [...equipmentObj.bookedDates].filter(
+//               (item) => item.bookingId != "LWKkm3ZhLL16zsNoY0i6"
+//             );
+//             currentDates.push({
+//               bookingId: "LWKkm3ZhLL16zsNoY0i6",
+//               date: validDate,
+//             });
+
+//             var bookingRef = db.collection("equipment").doc(equipmentObj.id);
+//             batch.update(bookingRef, { bookedDates: currentDates });
+//           });
+//           return batch.commit().then(() => {
+//             res.send({
+//               validDate: validDate,
+//             });
+//           });
+//         } else {
+//           res.send({
+//             fail: true,
+//           });
+//         }
+//       });
+//     });
+// });
