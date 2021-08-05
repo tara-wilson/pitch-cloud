@@ -48,10 +48,11 @@ function sendPushMessages(
   })();
 
   return Promise.all(tickets).then((vals) => {
-    console.log("ticket info:....", vals.length, vals);
+    var merged = [].concat.apply([], vals);
+
+    console.log("ticket info:....", merged.length, merged);
     let receiptIds = [];
-    for (let ticket of vals) {
-      console.log("ticket", ticket);
+    for (let ticket of merged) {
       if (ticket.id) {
         receiptIds.push(ticket.id);
       } else {
@@ -59,7 +60,6 @@ function sendPushMessages(
       }
     }
 
-    console.log("ticket after", vals);
     if (notificationId) {
       return db.collection("notificationResults").doc(notificationId).set({
         title: title,
