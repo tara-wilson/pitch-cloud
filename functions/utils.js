@@ -40,25 +40,27 @@ function sendPushMessages(
   (async () => {
     for (const chunk of chunks) {
       try {
-        tickets.push(expo.sendPushNotificationsAsync(chunk));
+        let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        console.log("ticketChunk", ticketChunk);
+        tickets.push(...ticketChunk);
       } catch (error) {
         console.error(error);
       }
     }
   })();
 
-  return Promise.all(tickets).then((vals) => {
-    console.log("ticket info:....", vals.length, vals);
-    let receiptIds = [];
-    for (let ticket of vals) {
-      console.log("ticket", ticket);
-      if (ticket.id) {
-        receiptIds.push(ticket.id);
-      } else {
-        console.log("no ticket info", ticket);
-      }
+  console.log("ticket info:....", tickets.length, tickets);
+  let receiptIds = [];
+  for (let ticket of tickets) {
+    console.log("ticket", ticket);
+    if (ticket.id) {
+      receiptIds.push(ticket.id);
+    } else {
+      console.log("no ticket info", ticket);
     }
+  }
 
+  return Promise.all(tickets).then((vals) => {
     console.log("ticket after", vals);
     if (notificationId) {
       return db.collection("notificationResults").doc(notificationId).set({
