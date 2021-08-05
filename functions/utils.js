@@ -1,6 +1,15 @@
 const { Expo } = require("expo-server-sdk");
+const admin = require("firebase-admin");
 
-function sendPushMessages(title, message, badge, originalTokens, data) {
+function sendPushMessages(
+  title,
+  message,
+  badge,
+  originalTokens,
+  data,
+  notificationId
+) {
+  const db = admin.firestore();
   const expo = new Expo();
   const tokens = originalTokens.filter((token) => Expo.isExpoPushToken(token));
   const messages = [];
@@ -39,7 +48,23 @@ function sendPushMessages(title, message, badge, originalTokens, data) {
     }
   })();
 
-  return Promise.all(tickets);
+  return Promise.all(tickets).then((responses) => {
+    if (notificationId) {
+      return db.collection("notificationResults").doc(notificationId).set({
+        title: title,
+        message: message,
+        tickets: tickets,
+        timeCreated: new Date(),
+      });
+    } else {
+      return db.collection("notificationResults").add({
+        title: title,
+        message: message,
+        tickets: tickets,
+        timeCreated: new Date(),
+      });
+    }
+  });
 }
 
 module.exports = {

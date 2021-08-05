@@ -75,7 +75,8 @@ exports.notifyOnNotificationCreate = functions.firestore
             data.text,
             oldCount + 1,
             [data.recipientPushToken],
-            data
+            data,
+            notificationId
           );
         });
     }
@@ -87,9 +88,14 @@ exports.emailOnNotificationCreate = functions.firestore
     const notificationId = context.params.notificationId;
     const data = snap.data();
 
-    if (!data.sentViaEmail && !data.toScout) {
+    if (!data.sentViaEmail) {
       db.doc(`notifications/${notificationId}`).update({ sentViaEmail: true });
-      return sendChatAsEmail(data.senderName, data.recipientEmail, data.text);
+      return sendChatAsEmail(
+        data.senderName,
+        data.recipientEmail,
+        data.text,
+        data
+      );
     }
   });
 
@@ -107,7 +113,8 @@ exports.emailOnBookingCreate = functions.firestore
             "New Booking!",
             null,
             [tara.pushToken, blair.pushToken, emma.pushToken],
-            {}
+            {},
+            null
           );
 
           return sendEmail(
@@ -145,7 +152,8 @@ exports.notifyOnContactCreate = functions.firestore
               : "There is a new App Message in the Admin Portal",
             null,
             [tara.pushToken, blair.pushToken, emma.pushToken],
-            {}
+            {},
+            null
           );
         });
       });
@@ -267,7 +275,8 @@ exports.cancellation = functions.https.onCall((data, context) => {
             ).format("MMMM Do")} to ${booking.siteName} was cancelled.`,
             null,
             [scoutUser.pushToken],
-            {}
+            {},
+            null
           );
           return sendEmail(
             {
@@ -417,7 +426,8 @@ const handleMessagePushNotification = async (message, template) => {
           updateMessageString(template.subject, message, booking),
           oldCount + 1,
           [user.pushToken],
-          message
+          message,
+          null
         );
 
         return { user: user, message: message, template: template };
@@ -489,8 +499,16 @@ const sendEmail = async (message, template) => {
   });
 };
 
-const sendChatAsEmail = async (scoutName, recipientEmail, text) => {
-  let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/d7b08187-03ad-466f-b8d8-31c28641fe6a/send?clientID=b649a7d2b2db56612f25541b6d532216`;
+const sendChatAsEmail = async (scoutName, recipientEmail, text, data) => {
+  let scoutEmail = `bc255066-c19e-4fc4-9009-0468fdf1cbbb`;
+  let camperEmail = `d7b08187-03ad-466f-b8d8-31c28641fe6a`;
+
+  let emailId = camperEmail;
+  if (data && data.asChatMessage && data.asChatMessage.toScout) {
+    emailId = scoutEmail;
+  }
+
+  let url = `https://api.createsend.com/api/v3.2/transactional/smartemail/${emailId}/send?clientID=b649a7d2b2db56612f25541b6d532216`;
   let requestBody = {
     To: [recipientEmail],
     Data: {
