@@ -34,26 +34,38 @@ function sendPushMessages(
     }
   });
 
-  console.log("sending", messages);
+  // console.log("sending", messages);
   const chunks = expo.chunkPushNotifications(messages);
-  const tickets = [];
+  let tickets = [];
   (async () => {
     for (const chunk of chunks) {
       try {
-        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        tickets.push(...ticketChunk);
+        tickets.push(expo.sendPushNotificationsAsync(chunk));
       } catch (error) {
         console.error(error);
       }
     }
   })();
 
-  return Promise.all(tickets).then((responses) => {
+  return Promise.all(tickets).then((vals) => {
+    console.log("ticket info:....", vals.length, vals);
+    let receiptIds = [];
+    for (let ticket of vals) {
+      console.log("ticket", ticket);
+      if (ticket.id) {
+        receiptIds.push(ticket.id);
+      } else {
+        console.log("no ticket info", ticket);
+      }
+    }
+
+    console.log("ticket after", vals);
     if (notificationId) {
       return db.collection("notificationResults").doc(notificationId).set({
         title: title,
         message: message,
         tickets: tickets,
+        receiptIds: receiptIds,
         timeCreated: new Date(),
       });
     } else {
@@ -61,6 +73,7 @@ function sendPushMessages(
         title: title,
         message: message,
         tickets: tickets,
+        receiptIds: receiptIds,
         timeCreated: new Date(),
       });
     }
