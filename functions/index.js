@@ -70,7 +70,7 @@ exports.notifyOnNotificationCreate = functions.firestore
           }
 
           let title = data.asChatMessage ? data.senderName : "Pitch";
-          utils.sendPushMessages(
+          return utils.sendPushMessages(
             title,
             data.text,
             oldCount + 1,

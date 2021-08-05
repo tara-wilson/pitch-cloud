@@ -60,11 +60,12 @@ function sendPushMessages(
       }
     }
 
+    console.log("receiptIds", receiptIds);
+
     if (notificationId) {
       return db.collection("notificationResults").doc(notificationId).set({
         title: title,
         message: message,
-        tickets: tickets,
         receiptIds: receiptIds,
         timeCreated: new Date(),
       });
@@ -72,7 +73,6 @@ function sendPushMessages(
       return db.collection("notificationResults").add({
         title: title,
         message: message,
-        tickets: tickets,
         receiptIds: receiptIds,
         timeCreated: new Date(),
       });
