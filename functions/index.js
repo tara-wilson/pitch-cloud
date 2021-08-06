@@ -8,7 +8,7 @@ const stripe = new Stripe(config.stripeSecretKey, {
   apiVersion: "2020-08-27",
 });
 var request = require("request");
-
+const FieldValue = require("firebase-admin").firestore.FieldValue;
 const MAIL_KEY =
   "EcwE3FTl+C9kWXdGlSg9HK3sqw6SFQs7AFA4mM/hCNEqvqCJGJmc8L5HLgFXH02Uh7Y9mDx7v3+Ml7DjM8NUIK5sKgv9NjsI6l2WCRViZAyNl2GtcMBn/hKmM8Nu3B11JwHKUxIeIjcK//P9IFc9VQ==";
 
@@ -61,12 +61,16 @@ exports.notifyOnNotificationCreate = functions.firestore
         .doc(data.recipient)
         .get()
         .then((item) => {
-          let user = item.data();
-          let oldCount = user.badgeCount || 0;
+          let oldCount = 0;
 
-          if (!data.read) {
-            var userBadgeRef = db.collection("users").doc(data.recipient);
-            userBadgeRef.update({ badgeCount: oldCount + 1 });
+          if (item.exists) {
+            let user = item.data();
+            oldCount = user.badgeCount || 0;
+
+            if (!data.read) {
+              var userBadgeRef = db.collection("users").doc(data.recipient);
+              userBadgeRef.update({ badgeCount: oldCount + 1 });
+            }
           }
 
           let title = data.asChatMessage ? data.senderName : "Pitch";
