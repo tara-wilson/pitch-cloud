@@ -165,7 +165,7 @@ exports.notifyOnContactCreate = functions.firestore
   });
 
 exports.checkForScheduledMessages = functions.pubsub
-  .schedule("10 8-20 * * *")
+  .schedule("10 5-20 * * *")
   .timeZone("America/New_York")
   .onRun((context) => {
     let templates = {};
