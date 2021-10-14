@@ -634,7 +634,7 @@ const getScoutForId = async (id) => {
 };
 
 const getCurrentScheduled = async () => {
-  let now = moment().tz("America/New_York").toDate();
+  let now = moment().tz("America/New_York").endOf("day").toDate();
   let hour = moment().tz("America/New_York").hour();
   let users = [];
   let items = [];
@@ -720,6 +720,22 @@ exports.onDeleteBooking = functions.firestore
       return batch.commit();
     });
   });
+
+// exports.testCheckScheduled = functions.https.onRequest((req, res) => {
+//   return getCurrentScheduled().then((sc) => {
+//     let now = moment().tz("America/New_York").add(6, "hours");
+
+//     let items = sc.map((item) => ({
+//       ...item,
+//       diff: moment(new Date(item.scheduledDate.seconds * 1000)).diff(
+//         now,
+//         "minutes"
+//       ),
+//     }));
+
+//     res.send({ items: items });
+//   });
+// });
 
 // exports.moveCustomersToProd = functions.https.onRequest((req, res) => {
 //   return db
